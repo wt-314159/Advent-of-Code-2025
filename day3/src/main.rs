@@ -13,12 +13,14 @@ fn main() {
 fn find_total_joltage(input: &str) -> usize {
     let mut total = 0;
     for bank in input.lines() {
-        let max = find_max_joltage(bank);
+        // let max = find_max_joltage(bank);
+        let max = find_max_joltage_two(bank);
         total += max;
     }
     total
 }
 
+#[allow(dead_code)]
 fn find_max_joltage(bank: &str) -> usize {
     // find biggest digit in all but last character
     let slice = &bank[..bank.len() - 1];
@@ -28,6 +30,25 @@ fn find_max_joltage(bank: &str) -> usize {
     let tens = char_to_num(max.1);
     let ones = char_to_num(second_max.1);
     tens * 10 + ones
+}
+
+fn find_max_joltage_two(bank: &str) -> usize {
+    // iterate through finding biggest remaining
+    // digit in last n characters, from 11 to 1
+    let mut slice = &bank[..bank.len() - 11];
+    let (mut prev_max_idx, mut max_char) = find_max_digit(slice);
+    let mut total = char_to_num(max_char);
+
+    for i in (0..=10).rev() {
+        prev_max_idx += 1;
+        slice = &bank[prev_max_idx..bank.len() - i];
+        let new_prev_idx;
+        (new_prev_idx, max_char) = find_max_digit(slice);
+        prev_max_idx += new_prev_idx;
+        total *= 10;
+        total += char_to_num(max_char);
+    }
+    total
 }
 
 fn char_to_num(c: char) -> usize {
