@@ -16,10 +16,6 @@ fn main() {
 @.@.@@@.@."#;
 
     let mut grid = create_grid(input);
-    // print_grid(&grid);
-    println!();
-    // let num_movable = count_accessible_rolls(&grid);
-    // println!("Number of rolls that can be moved: {num_movable}");
     let total_moved = remove_rolls(&mut grid);
     println!("Total moved: {total_moved}");
 }
@@ -31,17 +27,8 @@ fn count_accessible_rolls(grid: &[Vec<bool>]) -> usize {
         for j in 0..grid[0].len() {
             if grid[i][j] && get_surrounding_cells(grid, i, j).filter(|b| **b).count() < 4 {
                 count += 1;
-                // print!("x");
             }
-            // else {
-            // let c = match grid[i][j] {
-            //     true => '@',
-            //     false => '.',
-            // };
-            // print!("{c}");
-            // }
         }
-        // println!();
     }
     count
 }
@@ -59,7 +46,6 @@ fn remove_rolls(grid: &mut [Vec<bool>]) -> usize {
             }
         }
 
-        // println!("After removing {} rolls:", to_remove.len());
         if to_remove.is_empty() {
             return count;
         } else {
@@ -68,7 +54,6 @@ fn remove_rolls(grid: &mut [Vec<bool>]) -> usize {
         while let Some((i, j)) = to_remove.pop() {
             grid[i][j] = false;
         }
-        // print_grid(grid);
     }
 }
 
