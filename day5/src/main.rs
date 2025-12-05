@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    ops::{RangeFull, RangeInclusive},
-};
+use std::collections::HashSet;
 
 fn main() {
     let input = include_str!("../puzzle_input.txt");
@@ -19,17 +16,15 @@ fn main() {
 17
 32";
 
-    let result = count_all_fresh(test_input);
+    let result = count_all_fresh(input);
     println!("Result {result}");
 }
 
 #[allow(dead_code)]
 fn count_fresh_ingredients(input: &str) -> usize {
     let (ranges, ingredients) = input.split_once("\n\n").expect("Failed to find blank line");
-    // println!("Ranges: {ranges}");
-    // println!("Ingredients: {ingredients}");
-
     let ranges = find_fresh_ranges(ranges);
+
     let mut count = 0;
     for line in ingredients.lines() {
         let id: usize = line.parse().expect("Failed to parse ID");
@@ -61,9 +56,6 @@ fn count_all_in_ranges_naive(ranges: &[Range]) -> usize {
     fresh_set.len()
 }
 
-// Not quite accurate. If we have a current range that's a superset of a previous
-// range (start below and ends above a previous range, encapsulating it), we don't
-// account for that at all here.
 fn count_all_in_ranges(ranges: &mut [Range]) -> usize {
     let mut total = 0;
     'outer: for i in 0..ranges.len() {
@@ -83,12 +75,14 @@ fn count_all_in_ranges(ranges: &mut [Range]) -> usize {
                 range.end = prev_range.start - 1;
             }
             // check if current range encapsulates previous range
-            if prev_range.start >= range.start && prev_range.end <= range.end {
+            if prev_range.start >= range.start && prev_range.end <= range.end && prev_range.counted
+            {
                 total -= prev_range.count();
             }
         }
         // add count of current range to total
         total += range.count();
+        range.counted = true;
         // Update range in ranges slice
         ranges[i] = range;
     }
@@ -122,11 +116,16 @@ fn print_ranges(ranges: &[Range]) {
 struct Range {
     start: usize,
     end: usize,
+    counted: bool,
 }
 
 impl Range {
     fn new(start: usize, end: usize) -> Range {
-        Range { start, end }
+        Range {
+            start,
+            end,
+            counted: false,
+        }
     }
 
     fn count(&self) -> usize {
