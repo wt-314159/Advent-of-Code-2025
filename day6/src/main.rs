@@ -13,6 +13,7 @@ fn main() {
     println!("Total = {total}");
 }
 
+#[allow(dead_code)]
 fn count_total(problem_nums: Vec<Vec<usize>>, operations: Vec<Operation>) -> usize {
     let mut total = 0;
     // We can assume all the lines have the same number of numbers and operations
@@ -28,6 +29,7 @@ fn count_total(problem_nums: Vec<Vec<usize>>, operations: Vec<Operation>) -> usi
     total
 }
 
+#[allow(dead_code)]
 fn get_problems(input: &str) -> (Vec<Vec<usize>>, Vec<Operation>) {
     let mut problem_nums: Vec<Vec<usize>> = Vec::new();
     let mut line_iter = input.lines().peekable();
