@@ -28,9 +28,11 @@ fn main() {
 984,92,344
 425,690,689";
 
-    part_one(input);
+    // part_one(input);
+    part_two(input);
 }
 
+#[allow(dead_code)]
 fn part_one(input: &str) {
     let positions = get_positions(input);
     let num_closest_connections = 1000;
@@ -55,13 +57,22 @@ fn part_one(input: &str) {
 
 fn part_two(input: &str) {
     let positions = get_positions(input);
+    eprintln!("Num positions: {}", positions.len());
     // use 0 in find_n_closest_pairs to get all pairs
     let pairs_by_distance = find_n_closest_pairs(&positions, 0);
+    eprintln!("Num pairs: {}", pairs_by_distance.len());
+    let last_pair = group_all(&pairs_by_distance, positions.len());
+    println!(
+        "Last pair: {:?} & {:?}",
+        positions[last_pair.0], positions[last_pair.1]
+    );
+    let (x1, x2) = (positions[last_pair.0].x, positions[last_pair.1].x);
+    println!("{} * {} = {}", x1, x2, x1 * x2);
 }
 
 fn find_n_closest_pairs(positions: &[Position], n: usize) -> Vec<(f64, usize, usize)> {
     let len = positions.len();
-    let mut pair_distances = Vec::with_capacity(len);
+    let mut pair_distances = Vec::with_capacity((len * (len - 1)) / 2);
     for i in 0..len {
         for j in i + 1..len {
             let distance = positions[i].distance_from(&positions[j]);
@@ -72,6 +83,7 @@ fn find_n_closest_pairs(positions: &[Position], n: usize) -> Vec<(f64, usize, us
     // pass n = 0 to return all distances
     if n != 0 {
         pair_distances.truncate(n);
+        eprintln!("Truncated to {}", n);
     }
     pair_distances
 }
@@ -128,7 +140,70 @@ fn group_by_closest(closest_pairs: &[(f64, usize, usize)]) -> Vec<HashSet<usize>
     circuits
 }
 
-fn group_all(closest_pairs: &[(f64, usize, usize)]) {}
+fn group_all(closest_pairs: &[(f64, usize, usize)], num_junctions: usize) -> (usize, usize) {
+    let mut sets = Vec::new();
+    let mut idx_map = HashMap::new();
+    for pair in closest_pairs {
+        match (idx_map.get(&pair.1), idx_map.get(&pair.2)) {
+            (None, None) => {
+                let mut new_map = HashSet::new();
+                new_map.insert(pair.1);
+                new_map.insert(pair.2);
+                idx_map.insert(pair.1, sets.len());
+                idx_map.insert(pair.2, sets.len());
+                sets.push(Some(new_map));
+            }
+            (Some(&idx1), None) => {
+                sets[idx1].as_mut().unwrap().insert(pair.2);
+                idx_map.insert(pair.2, idx1);
+                if sets[idx1].as_ref().unwrap().len() == num_junctions {
+                    return (pair.1, pair.2);
+                }
+            }
+            (None, Some(&idx2)) => {
+                sets[idx2].as_mut().unwrap().insert(pair.1);
+                idx_map.insert(pair.1, idx2);
+                if sets[idx2].as_ref().unwrap().len() == num_junctions {
+                    return (pair.1, pair.2);
+                }
+            }
+            (Some(idx1), Some(idx2)) if idx1 == idx2 => {
+                // Do nothing, already in same circuit
+            }
+            (Some(&idx1), Some(&idx2)) => {
+                // Check if lengths of both sets sum to num of junctions,
+                // if so, this will be the final merge to add all juctions
+                // to one circuit, so just break early and return the pair
+                let (len1, len2) = (
+                    sets[idx1].as_ref().unwrap().len(),
+                    sets[idx2].as_ref().unwrap().len(),
+                );
+                if len1 + len2 == num_junctions {
+                    return (pair.1, pair.2);
+                }
+                // Now we need to merge sets, and make sure idx_map is updated
+                let (set_add, set_drop, idx_add);
+                if len1 >= len2 {
+                    set_drop = sets[idx2].take().unwrap();
+                    set_add = sets[idx1].as_mut().unwrap();
+                    idx_add = idx1;
+                } else {
+                    set_drop = sets[idx1].take().unwrap();
+                    set_add = sets[idx2].as_mut().unwrap();
+                    idx_add = idx2;
+                }
+                for junc in set_drop {
+                    set_add.insert(junc);
+                    idx_map.insert(junc, idx_add);
+                }
+                if set_add.len() == num_junctions {}
+            }
+        }
+    }
+    // Should hopefully never reach here, as after iterating
+    // through all connections, we should have one circuit
+    panic!("Failed to merge all junctions into one circuit");
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 struct Position {
