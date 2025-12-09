@@ -28,59 +28,44 @@ fn main() {
 984,92,344
 425,690,689";
 
-    let positions = get_positions(test_input);
-    let closest_pairs = find_closest_pairs(&positions);
-    for pair in closest_pairs.iter() {
-        println!(
-            "{:?} -> {:?} = {}, simple dist. {}",
-            positions[pair.1],
-            positions[pair.2],
-            pair.0,
-            dumb_distance(&positions[pair.1], &positions[pair.2])
-        );
-    }
-    let circuits = group_by_closest(&closest_pairs, 10);
+    let positions = get_positions(input);
+    let num_closest_connections = 1000;
+    let closest_pairs = find_n_closest_pairs(&positions, num_closest_connections);
+
+    let circuits = group_by_closest(&closest_pairs, num_closest_connections);
     for take_five in circuits.iter() {
         println!("Circuit size: {}", take_five.len());
-        // for position in take_five.as_ref().unwrap() {
-        //     println!("\t{:?}", position);
-        // }
     }
+    let mult = circuits
+        .iter()
+        .take(3)
+        .fold(1, |i, circuit| i * circuit.len());
+    println!(
+        "Top 3 multiplied: {} * {} * {} = {}",
+        circuits[0].len(),
+        circuits[1].len(),
+        circuits[2].len(),
+        mult
+    );
 }
 
-fn dumb_distance(pos1: &Position, pos2: &Position) -> f64 {
-    (pos1.x - pos2.x).abs() + (pos1.y - pos2.y).abs() + (pos1.z - pos2.z).abs()
-}
-
-fn find_closest_pairs(positions: &[Position]) -> Vec<(f64, usize, usize)> {
+fn find_n_closest_pairs(positions: &[Position], n: usize) -> Vec<(f64, usize, usize)> {
     let len = positions.len();
-    let mut used = HashSet::new();
     let mut pair_distances = Vec::with_capacity(len);
     for i in 0..len {
-        // we've already found closest pair for this idx
-        if used.contains(&i) {
-            continue;
+        for j in i + 1..len {
+            let distance = positions[i].distance_from(&positions[j]);
+            pair_distances.push((distance, i, j));
         }
-        let (min_idx, min) = positions
-            .iter()
-            .enumerate()
-            .filter(|(idx, _)| *idx != i)
-            .map(|(idx, pos)| (idx, pos.distance_from(&positions[i])))
-            .min_by(|a, b| a.1.total_cmp(&b.1))
-            .expect("Failed to find minimum");
-        pair_distances.push((min, i, min_idx));
-        used.insert(i);
-        used.insert(min_idx);
     }
     pair_distances.sort_by(|a, b| a.0.total_cmp(&b.0));
+    pair_distances.truncate(n);
     pair_distances
 }
 
 fn get_positions(input: &str) -> Vec<Position> {
     input.lines().map(Position::from).collect()
 }
-
-fn group_by_closest_two(closest_pairs: &[(f64, usize, usize)], num_connections: usize) {}
 
 fn group_by_closest(
     closest_pairs: &[(f64, usize, usize)],
