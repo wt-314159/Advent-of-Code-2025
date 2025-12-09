@@ -28,12 +28,16 @@ fn main() {
 984,92,344
 425,690,689";
 
+    part_one(input);
+}
+
+fn part_one(input: &str) {
     let positions = get_positions(input);
     let num_closest_connections = 1000;
     let closest_pairs = find_n_closest_pairs(&positions, num_closest_connections);
 
-    let circuits = group_by_closest(&closest_pairs, num_closest_connections);
-    for take_five in circuits.iter() {
+    let circuits = group_by_closest(&closest_pairs);
+    for take_five in circuits.iter().take(5) {
         println!("Circuit size: {}", take_five.len());
     }
     let mult = circuits
@@ -49,6 +53,12 @@ fn main() {
     );
 }
 
+fn part_two(input: &str) {
+    let positions = get_positions(input);
+    // use 0 in find_n_closest_pairs to get all pairs
+    let pairs_by_distance = find_n_closest_pairs(&positions, 0);
+}
+
 fn find_n_closest_pairs(positions: &[Position], n: usize) -> Vec<(f64, usize, usize)> {
     let len = positions.len();
     let mut pair_distances = Vec::with_capacity(len);
@@ -59,7 +69,10 @@ fn find_n_closest_pairs(positions: &[Position], n: usize) -> Vec<(f64, usize, us
         }
     }
     pair_distances.sort_by(|a, b| a.0.total_cmp(&b.0));
-    pair_distances.truncate(n);
+    // pass n = 0 to return all distances
+    if n != 0 {
+        pair_distances.truncate(n);
+    }
     pair_distances
 }
 
@@ -67,10 +80,13 @@ fn get_positions(input: &str) -> Vec<Position> {
     input.lines().map(Position::from).collect()
 }
 
-fn group_by_closest(
-    closest_pairs: &[(f64, usize, usize)],
-    num_connections: usize,
-) -> Vec<HashSet<usize>> {
+// This approach goes from one connection to the next, grouping,
+// until there are no more connections, to avoid having to join
+// 2 existing circuits together at any point. Unfortunately, we
+// can't use this approach for part 2, since we need to join all
+// junctions into one big circuit, and see which is the last
+// connection to be made before they're all linked.
+fn group_by_closest(closest_pairs: &[(f64, usize, usize)]) -> Vec<HashSet<usize>> {
     let mut circuits = Vec::new();
     let mut used = HashSet::new();
     let mut connection_count = 0;
@@ -81,7 +97,7 @@ fn group_by_closest(
         used.insert(start_pair.1);
         used.insert(start_pair.2);
         connection_count += 1;
-        if connection_count >= num_connections {
+        if connection_count >= closest_pairs.len() {
             break;
         }
         loop {
@@ -98,7 +114,7 @@ fn group_by_closest(
                     added += 1;
                     connection_count += 1;
                 }
-                if connection_count >= num_connections {
+                if connection_count >= closest_pairs.len() {
                     break 'outer;
                 }
             }
@@ -111,6 +127,8 @@ fn group_by_closest(
     circuits.sort_by_key(|c| Reverse(c.len()));
     circuits
 }
+
+fn group_all(closest_pairs: &[(f64, usize, usize)]) {}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 struct Position {
