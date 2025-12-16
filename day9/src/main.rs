@@ -3,6 +3,7 @@ use std::cmp::Reverse;
 fn main() {
     #[allow(unused_variables)]
     let input = include_str!("../puzzle_input.txt");
+    #[allow(unused_variables)]
     let test_input = r"7,1
 11,1
 11,4
@@ -14,7 +15,7 @@ fn main() {
 7,3";
 
     // part_one(input);
-    part_two(test_input);
+    part_two(input);
 }
 
 #[allow(dead_code)]
@@ -28,11 +29,11 @@ fn part_two(input: &str) {
     let positions = parse_positions(input);
     let lines = find_lines(&positions);
     let lines = consolidate_lines(lines);
-    let lines = remove_some_horizontal_lines(lines);
     // print_tiles(&positions, &lines);
     // println!("{lines:#?}");
-    let max_area = find_largest_green_rect(&positions, &lines);
-    println!("Largest green rectangle: {max_area}");
+    let max_rect = find_largest_green_rect(&positions, &lines);
+    println!("Largest green rectangle: {}", max_rect.2);
+    println!("From {:?} to {:?}", max_rect.0, max_rect.1);
 }
 
 fn parse_positions(input: &str) -> Vec<Position> {
@@ -53,7 +54,7 @@ fn find_largest_rect(positions: &[Position]) -> usize {
     max_size
 }
 
-fn find_largest_green_rect(positions: &[Position], lines: &[Line]) -> usize {
+fn find_largest_green_rect(positions: &[Position], lines: &[Line]) -> (Position, Position, usize) {
     let mut rectangles = Vec::new();
     for i in 0..positions.len() {
         for j in i..positions.len() {
@@ -64,40 +65,32 @@ fn find_largest_green_rect(positions: &[Position], lines: &[Line]) -> usize {
     }
     rectangles.sort_by_key(|r| Reverse(r.2));
 
-    rectangles
+    *rectangles
         .iter()
-        .find(|r| is_rect_all_green(r, lines))
+        .find(|r| is_rect_all_green(r, positions, lines))
         .expect("No rectangles are all green")
-        .2
 }
 
-fn is_rect_all_green(rectangle: &(Position, Position, usize), lines: &[Line]) -> bool {
-    let (min_x, max_x) = min_max(rectangle.0.x, rectangle.1.y);
+fn is_rect_all_green(
+    rectangle: &(Position, Position, usize),
+    positions: &[Position],
+    lines: &[Line],
+) -> bool {
+    // Check if there are any points inside the rectangle, ignoring a 1 width border
+    // Should only be possible for the rect to be all green (all inside the shape) if
+    // there are no points inside it
+    let (min_x, max_x) = min_max(rectangle.0.x, rectangle.1.x);
     let (min_y, max_y) = min_max(rectangle.0.y, rectangle.1.y);
-    for row in min_y..=max_y {
-        let lines_crossed = lines
-            .iter()
-            .filter(|l| {
-                (l.crosses_row(row) && l.start.x <= min_x)
-                    || (l.is_on_row(row) && l.start.x <= min_x && l.end.x <= min_x)
-            })
-            .count();
-        if lines_crossed.is_multiple_of(2) {
-            return false;
-        }
-        if lines
-            .iter()
-            .any(|l| l.crosses_row(row) && l.start.x > min_x && l.end.x < max_x)
-        {
-            // not necessarily always true, a line could 'cross' this row by
-            // ending on it, which wouldn't necessarily take us out of the
-            // shape (there could then be a horizontal line and another line
-            // back in the same direction the first one came, and this row
-            // would still be entirely green
-            return false;
-        }
+    if positions
+        .iter()
+        .any(|p| p.x > min_x && p.x < max_x && p.y > min_y && p.y < max_y)
+    {
+        return false;
     }
-    todo!("Not yet complete, need better check for edge cases");
+    // Also need to check if any lines cross through the center of the space
+    !lines
+        .iter()
+        .any(|l| l.crosses_rect(min_x, max_x, min_y, max_y))
 }
 
 fn find_lines(positions: &[Position]) -> Vec<Line> {
@@ -133,32 +126,6 @@ fn consolidate_lines(lines: Vec<Line>) -> Vec<Line> {
     new_lines
 }
 
-fn remove_some_horizontal_lines(lines: Vec<Line>) -> Vec<Line> {
-    // Need to remove horizontal lines where the vertical line
-    // before and after are either both above or both below
-    // the horizontal line, as these lines don't change whether
-    // the position is in or out of the shape.
-    let mut new_lines = Vec::with_capacity(lines.len());
-    let mut prev_direction = Direction::Right;
-
-    let mut iter = lines.iter().peekable();
-    while let Some(line) = iter.next() {
-        // Add all non-horizontal lines
-        if line.start.y != line.end.y {
-            prev_direction = line.get_direction();
-            new_lines.push(*line);
-        } else if let Some(next_line) = iter.peek() {
-            let next_direction = next_line.get_direction();
-            if !next_direction.vertical_opposite(&prev_direction) {
-                new_lines.push(*line);
-            }
-        } else {
-            new_lines.push(*line);
-        }
-    }
-    new_lines
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Position {
     x: usize,
@@ -183,24 +150,6 @@ impl Position {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Direction {
-    Left,
-    Up,
-    Right,
-    Down,
-}
-
-impl Direction {
-    fn vertical_opposite(&self, other: &Direction) -> bool {
-        match self {
-            Direction::Up => *other == Direction::Down,
-            Direction::Down => *other == Direction::Up,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
 struct Line {
     start: Position,
     end: Position,
@@ -211,15 +160,6 @@ impl Line {
         Line { start, end }
     }
 
-    fn crosses_row(&self, y: usize) -> bool {
-        self.start.x == self.end.x
-            && !((self.start.y < y && self.end.y < y) || (self.start.y > y && self.end.y > y))
-    }
-
-    fn is_on_row(&self, y: usize) -> bool {
-        self.start.y == y && self.end.y == y
-    }
-
     fn is_end_to_end(&self, other: &Line) -> bool {
         // all points on same x, or all points on same y
         (self.start.x == self.end.x && other.start.x == self.start.x && other.end.x == self.start.x)
@@ -228,17 +168,22 @@ impl Line {
                 && other.end.y == self.start.y)
     }
 
-    fn get_direction(&self) -> Direction {
+    fn crosses_rect(&self, min_x: usize, max_x: usize, min_y: usize, max_y: usize) -> bool {
+        // horizontal lines
         if self.start.y == self.end.y {
-            if self.start.x > self.end.x {
-                Direction::Left
-            } else {
-                Direction::Right
-            }
-        } else if self.start.y > self.end.y {
-            Direction::Up
+            // first check line is on a row between min_x and max_x
+            self.start.y > min_y
+                && self.start.y < max_y
+                // Then check line's start and end aren't either both
+                // before or both after min_x and max_x respectively
+                && !((self.start.x < min_x && self.end.x < min_x)
+                    || (self.start.x > max_x && self.end.x > max_x))
         } else {
-            Direction::Down
+            // vertical lines
+            self.start.x > min_x
+                && self.start.x < max_x
+                && !((self.start.y < min_y && self.end.y < min_y)
+                    || (self.start.y > min_y && self.end.y > min_y))
         }
     }
 }
