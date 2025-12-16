@@ -1,7 +1,11 @@
+use std::cmp::Reverse;
+
 fn main() {
+    #[allow(unused_variables)]
     let input = include_str!("../puzzle_input.txt");
     let test_input = r"7,1
 11,1
+11,4
 11,7
 9,7
 9,5
@@ -22,8 +26,13 @@ fn part_one(input: &str) {
 
 fn part_two(input: &str) {
     let positions = parse_positions(input);
-    let lines = find_green_tiles(&positions);
-    print_tiles(&positions, &lines);
+    let lines = find_lines(&positions);
+    let lines = consolidate_lines(lines);
+    let lines = remove_some_horizontal_lines(lines);
+    // print_tiles(&positions, &lines);
+    // println!("{lines:#?}");
+    let max_area = find_largest_green_rect(&positions, &lines);
+    println!("Largest green rectangle: {max_area}");
 }
 
 fn parse_positions(input: &str) -> Vec<Position> {
@@ -44,11 +53,54 @@ fn find_largest_rect(positions: &[Position]) -> usize {
     max_size
 }
 
-fn find_largest_green_rect(positions: &[Position]) -> usize {
-    todo!()
+fn find_largest_green_rect(positions: &[Position], lines: &[Line]) -> usize {
+    let mut rectangles = Vec::new();
+    for i in 0..positions.len() {
+        for j in i..positions.len() {
+            let (pos1, pos2) = (positions[i], positions[j]);
+            let area = pos1.find_rect_area(&pos2);
+            rectangles.push((pos1, pos2, area));
+        }
+    }
+    rectangles.sort_by_key(|r| Reverse(r.2));
+
+    rectangles
+        .iter()
+        .find(|r| is_rect_all_green(r, lines))
+        .expect("No rectangles are all green")
+        .2
 }
 
-fn find_green_tiles(positions: &[Position]) -> Vec<Line> {
+fn is_rect_all_green(rectangle: &(Position, Position, usize), lines: &[Line]) -> bool {
+    let (min_x, max_x) = min_max(rectangle.0.x, rectangle.1.y);
+    let (min_y, max_y) = min_max(rectangle.0.y, rectangle.1.y);
+    for row in min_y..=max_y {
+        let lines_crossed = lines
+            .iter()
+            .filter(|l| {
+                (l.crosses_row(row) && l.start.x <= min_x)
+                    || (l.is_on_row(row) && l.start.x <= min_x && l.end.x <= min_x)
+            })
+            .count();
+        if lines_crossed.is_multiple_of(2) {
+            return false;
+        }
+        if lines
+            .iter()
+            .any(|l| l.crosses_row(row) && l.start.x > min_x && l.end.x < max_x)
+        {
+            // not necessarily always true, a line could 'cross' this row by
+            // ending on it, which wouldn't necessarily take us out of the
+            // shape (there could then be a horizontal line and another line
+            // back in the same direction the first one came, and this row
+            // would still be entirely green
+            return false;
+        }
+    }
+    todo!("Not yet complete, need better check for edge cases");
+}
+
+fn find_lines(positions: &[Position]) -> Vec<Line> {
     let mut lines = Vec::new();
     let mut iter = positions.iter().peekable();
     while let Some(start) = iter.next()
@@ -62,6 +114,49 @@ fn find_green_tiles(positions: &[Position]) -> Vec<Line> {
         *positions.first().unwrap(),
     ));
     lines
+}
+
+fn consolidate_lines(lines: Vec<Line>) -> Vec<Line> {
+    let mut new_lines = Vec::with_capacity(lines.len());
+    let mut iter = lines.iter();
+    let mut prev_line = *iter.next().unwrap();
+    for cur_line in iter {
+        if prev_line.is_end_to_end(cur_line) {
+            prev_line.end = cur_line.end;
+        } else {
+            new_lines.push(prev_line);
+            prev_line = *cur_line;
+        }
+    }
+    // We always end the loop with a prev_line still to push
+    new_lines.push(prev_line);
+    new_lines
+}
+
+fn remove_some_horizontal_lines(lines: Vec<Line>) -> Vec<Line> {
+    // Need to remove horizontal lines where the vertical line
+    // before and after are either both above or both below
+    // the horizontal line, as these lines don't change whether
+    // the position is in or out of the shape.
+    let mut new_lines = Vec::with_capacity(lines.len());
+    let mut prev_direction = Direction::Right;
+
+    let mut iter = lines.iter().peekable();
+    while let Some(line) = iter.next() {
+        // Add all non-horizontal lines
+        if line.start.y != line.end.y {
+            prev_direction = line.get_direction();
+            new_lines.push(*line);
+        } else if let Some(next_line) = iter.peek() {
+            let next_direction = next_line.get_direction();
+            if !next_direction.vertical_opposite(&prev_direction) {
+                new_lines.push(*line);
+            }
+        } else {
+            new_lines.push(*line);
+        }
+    }
+    new_lines
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -88,6 +183,24 @@ impl Position {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+enum Direction {
+    Left,
+    Up,
+    Right,
+    Down,
+}
+
+impl Direction {
+    fn vertical_opposite(&self, other: &Direction) -> bool {
+        match self {
+            Direction::Up => *other == Direction::Down,
+            Direction::Down => *other == Direction::Up,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct Line {
     start: Position,
     end: Position,
@@ -97,8 +210,40 @@ impl Line {
     fn new(start: Position, end: Position) -> Line {
         Line { start, end }
     }
+
+    fn crosses_row(&self, y: usize) -> bool {
+        self.start.x == self.end.x
+            && !((self.start.y < y && self.end.y < y) || (self.start.y > y && self.end.y > y))
+    }
+
+    fn is_on_row(&self, y: usize) -> bool {
+        self.start.y == y && self.end.y == y
+    }
+
+    fn is_end_to_end(&self, other: &Line) -> bool {
+        // all points on same x, or all points on same y
+        (self.start.x == self.end.x && other.start.x == self.start.x && other.end.x == self.start.x)
+            || (self.start.y == self.end.y
+                && other.start.y == self.start.y
+                && other.end.y == self.start.y)
+    }
+
+    fn get_direction(&self) -> Direction {
+        if self.start.y == self.end.y {
+            if self.start.x > self.end.x {
+                Direction::Left
+            } else {
+                Direction::Right
+            }
+        } else if self.start.y > self.end.y {
+            Direction::Up
+        } else {
+            Direction::Down
+        }
+    }
 }
 
+#[allow(dead_code)]
 fn print_tiles(positions: &[Position], lines: &[Line]) {
     let max_x = positions
         .iter()
