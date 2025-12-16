@@ -176,14 +176,14 @@ impl Line {
                 && self.start.y < max_y
                 // Then check line's start and end aren't either both
                 // before or both after min_x and max_x respectively
-                && !((self.start.x < min_x && self.end.x < min_x)
-                    || (self.start.x > max_x && self.end.x > max_x))
+                && !((self.start.x <= min_x && self.end.x <= min_x)
+                    || (self.start.x >= max_x && self.end.x >= max_x))
         } else {
             // vertical lines
             self.start.x > min_x
                 && self.start.x < max_x
-                && !((self.start.y < min_y && self.end.y < min_y)
-                    || (self.start.y > min_y && self.end.y > min_y))
+                && !((self.start.y <= min_y && self.end.y <= min_y)
+                    || (self.start.y >= max_y && self.end.y >= max_y))
         }
     }
 }
