@@ -76,18 +76,9 @@ fn is_rect_all_green(
     positions: &[Position],
     lines: &[Line],
 ) -> bool {
-    // Check if there are any points inside the rectangle, ignoring a 1 width border
-    // Should only be possible for the rect to be all green (all inside the shape) if
-    // there are no points inside it
     let (min_x, max_x) = min_max(rectangle.0.x, rectangle.1.x);
     let (min_y, max_y) = min_max(rectangle.0.y, rectangle.1.y);
-    if positions
-        .iter()
-        .any(|p| p.x > min_x && p.x < max_x && p.y > min_y && p.y < max_y)
-    {
-        return false;
-    }
-    // Also need to check if any lines cross through the center of the space
+    // Check if any lines cross through the center of the space
     !lines
         .iter()
         .any(|l| l.crosses_rect(min_x, max_x, min_y, max_y))
