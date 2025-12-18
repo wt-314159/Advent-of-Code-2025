@@ -184,11 +184,6 @@ impl From<&str> for Machine {
 }
 
 fn heuristic(state: &Lights, target: &Lights, steps: usize) -> usize {
-    // Put heavier weight on distance to target,
-    // otherwise we'll have too heavy a weight on
-    // the state with the fewest steps, and will
-    // probably always pick the starting state as
-    // the best next state to check from
     steps + state.calc_dist(target)
 }
 
