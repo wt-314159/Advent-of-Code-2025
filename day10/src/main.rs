@@ -184,7 +184,7 @@ impl From<&str> for Machine {
 }
 
 fn heuristic(state: &Lights, target: &Lights, steps: usize) -> usize {
-    steps + state.calc_dist(target)
+    4 * steps + state.calc_dist(target)
 }
 
 impl Lights {
