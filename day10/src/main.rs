@@ -22,17 +22,26 @@ fn part_one(input: &str) {
 }
 
 fn part_two(input: &str) {
-    let machines = input.lines().map(Machine::from);
+    let mut machines = input.lines().map(Machine::from);
     // let total: usize = machines.map(find_fewest_jolts_depth_first).sum();
-    let lines = input.lines().count();
-    let mut count = 0;
+    //
+    // let lines = input.lines().count();
+    // let mut count = 0;
+    // let total: usize = machines
+    //     .map(|m| {
+    //         count += 1;
+    //         eprintln!("Working on machine {}/{}", count, lines);
+    //         find_fewest_jolts_depth_first(m)
+    //     })
+    //     .count();
+    //
     let total: usize = machines
-        .map(|m| {
-            count += 1;
-            eprintln!("Working on machine {}/{}", count, lines);
-            find_fewest_jolts_depth_first(m)
+        .try_fold(0, |sum, mut m| {
+            let start_state = m.joltages.clone();
+            eprintln!("{:?}", start_state);
+            Some(sum + find_fewest_jolts_new(&mut m, start_state, 0)?)
         })
-        .count();
+        .expect("Failed to find target");
     println!("Total steps: {total}");
 }
 
@@ -91,6 +100,36 @@ fn find_fewest_steps(machine: Machine) -> usize {
     panic!("Didn't find target");
 }
 
+fn find_fewest_jolts_new(
+    machine: &mut Machine,
+    state: Vec<usize>,
+    mut steps: usize,
+) -> Option<usize> {
+    if state.iter().all(|&x| x == 0) {
+        return Some(steps);
+    } else {
+        steps += 1;
+    }
+    let button = machine.buttons.iter().max_by_key(|b| b.try_sum(&state))?;
+    let mut new_state = button.dec_jolts(&state);
+    if let Some(answer) = find_fewest_jolts_new(machine, new_state, steps) {
+        Some(answer)
+    } else {
+        // Otherwise, loop through other buttons
+        let mut buttons = machine.buttons.clone();
+        buttons.sort_by_key(|b| Reverse(b.try_sum(&state)));
+
+        for button in buttons.iter().skip(1) {
+            new_state = button.dec_jolts(&state);
+            if let Some(answer) = find_fewest_jolts_new(machine, new_state, steps) {
+                return Some(answer);
+            }
+        }
+        None
+    }
+}
+
+#[allow(dead_code)]
 fn find_fewest_jolts_depth_first(mut machine: Machine) -> usize {
     // We can actually take a depth first approach and still
     // guarantee we've found the optimal path if we always
@@ -207,6 +246,24 @@ impl Button {
             new_state[idx] += 1;
         }
         new_state
+    }
+
+    fn dec_jolts(&self, joltage: &[usize]) -> Vec<usize> {
+        let mut new_state = Vec::from(joltage);
+        for &idx in &self.light_idxs {
+            new_state[idx] = new_state[idx].saturating_sub(1);
+        }
+        new_state
+    }
+
+    fn try_sum(&self, state: &[usize]) -> Option<usize> {
+        self.light_idxs.iter().try_fold(0, |sum, &idx| {
+            if state[idx] > 0 {
+                Some(sum + state[idx])
+            } else {
+                None
+            }
+        })
     }
 }
 
