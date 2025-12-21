@@ -110,8 +110,26 @@ fn find_fewest_jolts_new(
     } else {
         steps += 1;
     }
-    let button = machine.buttons.iter().max_by_key(|b| b.try_sum(&state))?;
+    let mut max_button = None;
+    let mut max_sum = 0;
+    for button in &machine.buttons {
+        if let Some(sum) = button.try_sum(&state)
+            && sum > max_sum
+        {
+            max_sum = sum;
+            max_button = Some(button);
+        }
+    }
+    let button = max_button?;
     let mut new_state = button.dec_jolts(&state);
+    // eprintln!(
+    //     "\tStep {:<4}, {:<45} -> {:<45}, can be applied: {:<6}, button: {:?}",
+    //     steps,
+    //     format!("{:?}", state),
+    //     format!("{:?}", new_state),
+    //     button.try_sum(&state).is_some(),
+    //     button
+    // );
     if let Some(answer) = find_fewest_jolts_new(machine, new_state, steps) {
         Some(answer)
     } else {
@@ -120,7 +138,24 @@ fn find_fewest_jolts_new(
         buttons.sort_by_key(|b| Reverse(b.try_sum(&state)));
 
         for button in buttons.iter().skip(1) {
+            // This could be cleaner, but basically the sort above
+            // doesn't guarantee that any of the buttons don't return
+            // None when trying to sum (i.e. don't remove below 0),
+            // so just manually check that here. There will be a
+            // better way to do this so we don't have to call this
+            // twice, but just want to get it working so I can test
+            // the approach as a whole.
+            if button.try_sum(&state).is_none() {
+                break;
+            }
             new_state = button.dec_jolts(&state);
+            // eprintln!(
+            //     "\tAlt step {:<4}, {:<45} -> {:<45}, button: {:?}",
+            //     steps,
+            //     format!("{:?}", state),
+            //     format!("{:?}", new_state),
+            //     button
+            // );
             if let Some(answer) = find_fewest_jolts_new(machine, new_state, steps) {
                 return Some(answer);
             }
