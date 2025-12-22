@@ -38,7 +38,7 @@ fn part_two(input: &str) {
     let total: usize = machines
         .try_fold(0, |sum, mut m| {
             let start_state = m.joltages.clone();
-            eprintln!("{:?}", start_state);
+            // eprintln!("{:?}", start_state);
             Some(sum + find_fewest_jolts_new(&mut m, start_state, 0)?)
         })
         .expect("Failed to find target");
